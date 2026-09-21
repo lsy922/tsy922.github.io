@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoundMatch - 취향 & 성격 기반 음악 추천</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts (Inter & Noto Sans KR) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans KR', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f5ff',
+                            100: '#e5edff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#1e1b4b',
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Custom scrollbar and glassmorphism styling */
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glass-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(99, 102, 241, 0.4);
+            transform: translateY(-2px);
+        }
+        .accent-gradient {
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+        }
+        .text-gradient {
+            background: linear-gradient(135deg, #818cf8 0%, #c084fc 50%, #f472b6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        /* Hide scrollbars */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="relative overflow-x-hidden selection:bg-indigo-500 selection:text-white">
+
+    <!-- Background Glow Elements -->
+    <div class="fixed top-0 left-1/4 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none animate-pulse-slow"></div>
+    <div class="fixed bottom-10 right-10 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none animate-pulse-slow" style="animation-delay: 1.5s;"></div>
+    <div class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-pink-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <!-- Main Container -->
+    <div class="relative z-10 flex-1 flex flex-col justify-between max-w-4xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <!-- Header Nav -->
+        <header class="flex items-center justify-between py-4 mb-6 border-b border-slate-800">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="resetToHome()">
+                <div class="w-9 h-9 rounded-xl accent-gradient flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+                    <i class="fa-solid fa-music"></i>
+                </div>
+                <span class="text-xl font-bold tracking-tight text-white">Sound<span class="text-indigo-400">Match</span></span>
+            </div>
+            <div class="text-xs font-medium text-slate-400 bg-slate-800/80 px-3 py-1.5 rounded-full border border-slate-700/50">
+                <i class="fa-solid fa-wand-magic-sparkles text-indigo-400 mr-1.5"></i>AI 취향 분석기
+            </div>
+        </header>
+
+        <!-- STEP 1: WELCOME SCREEN -->
+        <main id="step-welcome" class="my-auto py-8 text-center flex flex-col items-center">
+            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-sm font-medium mb-6 animate-float">
+                <i class="fa-solid fa-headphones"></i> 나만의 시그니처 사운드 찾기
+            </div>
+            
+            <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white mb-6 leading-tight">
+                당신의 성격과 기분에 꼭 맞는<br>
+                <span class="text-gradient">인생 노래를 추천해드릴게요</span>
+            </h1>
+            
+            <p class="text-slate-400 text-base sm:text-lg max-w-2xl mb-10 leading-relaxed font-light">
+                복잡한 음악 검색은 이제 그만! 단 4개의 간단한 질문으로 당신의 현재 감정선과 성격 테마를 분석하여 마음을 뒤흔들 플레이리스트를 찾아드립니다.
+            </p>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full max-w-2xl mb-10">
+                <div class="glass-panel p-4 rounded-2xl text-center">
+                    <i class="fa-solid fa-bolt text-2xl text-amber-400 mb-2"></i>
+                    <div class="text-xs text-slate-400">빠른 테스트</div>
+                    <div class="text-sm font-semibold text-slate-200">약 1분 소요</div>
+                </div>
+                <div class="glass-panel p-4 rounded-2xl text-center">
+                    <i class="fa-solid fa-brain text-2xl text-indigo-400 mb-2"></i>
+                    <div class="text-xs text-slate-400">다차원 분석</div>
+                    <div class="text-sm font-semibold text-slate-200">4가지 아키타입</div>
+                </div>
+                <div class="glass-panel p-4 rounded-2xl text-center">
+                    <i class="fa-solid fa-compact-disc text-2xl text-pink-400 mb-2"></i>
+                    <div class="text-xs text-slate-400">맞춤 트랙</div>
+                    <div class="text-sm font-semibold text-slate-200">5개 추천 곡</div>
+                </div>
+                <div class="glass-panel p-4 rounded-2xl text-center">
+                    <i class="fa-solid fa-sliders text-2xl text-emerald-400 mb-2"></i>
+                    <div class="text-xs text-slate-400">취향 정밀도</div>
+                    <div class="text-sm font-semibold text-slate-200">98% 만족도</div>
+                </div>
+            </div>
+
+            <button onclick="startQuiz()" class="group relative inline-flex items-center justify-center px-8 py-4 font-bold text-white transition-all duration-300 bg-indigo-600 rounded-full hover:bg-indigo-500 shadow-lg shadow-indigo-600/30 hover:shadow-indigo-500/50 hover:-translate-y-0.5 active:translate-y-0">
+                <span>내 음악 성격 테스트 시작하기</span>
+                <i class="fa-solid fa-arrow-right ml-3 transition-transform duration-300 group-hover:translate-x-1"></i>
+            </button>
+        </main>
+
+        <!-- STEP 2: QUIZ SCREEN -->
+        <main id="step-quiz" class="hidden my-auto py-4">
+            <!-- Progress Bar -->
+            <div class="mb-8">
+                <div class="flex justify-between items-center mb-2 text-sm font-medium">
+                    <span id="quiz-step-indicator" class="text-indigo-400">질문 1 / 4</span>
+                    <span id="quiz-percent" class="text-slate-400">25%</span>
+                </div>
+                <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div id="quiz-progress-bar" class="h-full accent-gradient transition-all duration-500 rounded-full" style="width: 25%;"></div>
+                </div>
+            </div>
+
+            <!-- Quiz Card -->
+            <div class="glass-panel p-6 sm:p-8 rounded-3xl relative">
+                <div id="question-category" class="inline-block px-3 py-1 rounded-md bg-indigo-500/20 text-indigo-300 text-xs font-semibold uppercase tracking-wider mb-3">
+                    Emotion & Vibe
+                </div>
+                <h2 id="question-text" class="text-2xl sm:text-3xl font-bold text-white mb-8 leading-snug">
+                    오늘 하루 당신의 마음 상태 / 기분은 어떤가요?
+                </h2>
+
+                <!-- Options Grid -->
+                <div id="options-container" class="grid grid-cols-1 gap-4">
+                    <!-- Dynamic Options Inserted via JS -->
+                </div>
+            </div>
+
+            <!-- Quiz Navigation Bottom Info -->
+            <div class="flex justify-between items-center mt-6 text-xs text-slate-500 px-2">
+                <button id="prev-btn" onclick="prevQuestion()" class="invisible flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-chevron-left"></i> 이전 질문
+                </button>
+                <span>솔직하게 느껴지는 대로 선택해 주세요</span>
+            </div>
+        </main>
+
+        <!-- LOADING SCREEN -->
+        <main id="step-loading" class="hidden my-auto py-16 text-center flex flex-col items-center justify-center">
+            <div class="relative w-24 h-24 mb-8">
+                <div class="absolute inset-0 rounded-full border-4 border-indigo-500/20"></div>
+                <div class="absolute inset-0 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin"></div>
+                <div class="absolute inset-0 flex items-center justify-center text-indigo-400">
+                    <i class="fa-solid fa-compact-disc text-3xl animate-pulse"></i>
+                </div>
+            </div>
+            <h2 class="text-2xl font-bold text-white mb-2">당신의 음악적 D.N.A 분석 중...</h2>
+            <p id="loading-subtext" class="text-slate-400 text-sm max-w-sm">선택하신 감정과 성격 패턴을 바탕으로 최고의 트랙을 매칭하고 있습니다.</p>
+        </main>
+
+        <!-- STEP 3: RESULT SCREEN -->
+        <main id="step-result" class="hidden py-4">
+            
+            <!-- Result Archetype Banner -->
+            <div class="glass-panel p-6 sm:p-8 rounded-3xl mb-8 relative overflow-hidden border-indigo-500/30">
+                <div class="absolute top-0 right-0 translate-x-8 -translate-y-8 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl"></div>
+                
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 relative z-10">
+                    <div>
+                        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-semibold mb-3">
+                            <i class="fa-solid fa-sparkles"></i> 당신의 음악 아키타입
+                        </div>
+                        <h2 id="archetype-title" class="text-3xl sm:text-4xl font-extrabold text-white mb-2">
+                            에너제틱 스파크형
+                        </h2>
+                        <p id="archetype-desc" class="text-slate-300 text-sm sm:text-base leading-relaxed max-w-2xl">
+                            열정적이고 활동적인 당신! 강렬한 비트와 신나는 멜로디가 일상의 에너지를 극대화해줍니다. 답답한 마음을 날려버릴 사운드가 필요하군요.
+                        </p>
+                    </div>
+                    <div id="archetype-icon-box" class="w-20 h-20 sm:w-24 sm:y-24 rounded-2xl accent-gradient flex-shrink-0 flex items-center justify-center text-white text-3xl sm:text-4xl shadow-xl shadow-indigo-500/20">
+                        <i class="fa-solid fa-bolt"></i>
+                    </div>
+                </div>
+
+                <!-- Tag Cloud -->
+                <div id="archetype-tags" class="flex flex-wrap gap-2 mt-6 pt-6 border-t border-slate-700/50">
+                    <!-- Dynamic tags -->
+                </div>
+            </div>
+
+            <!-- Recommendation Section Header & Filter -->
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <div>
+                    <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-record-vinyl text-indigo-400"></i> 추천 맞춤 트랙
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-1">당신의 성향에 맞춰 엄선된 5개의 맞춤 노래입니다.</p>
+                </div>
+
+                <!-- Category/Genre Quick Filter -->
+                <div class="flex gap-1.5 bg-slate-800/80 p-1 rounded-xl border border-slate-700 text-xs font-medium">
+                    <button onclick="filterSongs('all')" class="song-filter-btn active px-3 py-1.5 rounded-lg text-white bg-indigo-600 transition-all">전체</button>
+                    <button onclick="filterSongs('kpop')" class="song-filter-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition-all">K-POP</button>
+                    <button onclick="filterSongs('pop')" class="song-filter-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition-all">POP</button>
+                    <button onclick="filterSongs('indie')" class="song-filter-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition-all">인디/어쿠스틱</button>
+                </div>
+            </div>
+
+            <!-- Songs List Container -->
+            <div id="songs-container" class="space-y-4 mb-10">
+                <!-- Dynamic Song Cards Inserted via JS -->
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4 border-t border-slate-800">
+                <button onclick="resetToHome()" class="w-full sm:w-auto px-6 py-3.5 rounded-full glass-card hover:bg-slate-800 text-slate-200 font-semibold text-sm flex items-center justify-center gap-2 transition-all">
+                    <i class="fa-solid fa-rotate-right"></i> 다시 테스트하기
+                </button>
+                <button onclick="shareResult()" class="w-full sm:w-auto px-8 py-3.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition-all">
+                    <i class="fa-solid fa-share-nodes"></i> 결과 공유하기
+                </button>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="mt-12 py-6 text-center text-xs text-slate-500 border-t border-slate-800/80">
+            <p>© 2026 SoundMatch. All rights reserved. Music taste & personality recommendation engine.</p>
+        </footer>
+    </div>
+
+    <!-- Toast Notification for Copying/Actions -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 glass-panel border border-indigo-500/40 text-white px-6 py-3 rounded-full text-sm shadow-2xl flex items-center gap-2 opacity-0 pointer-events-none transition-all duration-300 z-50">
+        <i class="fa-solid fa-circle-check text-indigo-400"></i>
+        <span id="toast-message">결과 링크가 클립보드에 복사되었습니다!</span>
+    </div>
+
+    <script>
+        // Quiz Questions Data Structure
+        const questions = [
+            {
+                category: "현재 감정과 기분",
+                question: "오늘 하루 당신의 마음 상태 / 기분은 어떤가요?",
+                options: [
+                    { text: "에너지가 넘치고 신나거나 활기찬 상태예요!", score: "energetic", icon: "fa-bolt text-amber-400" },
+                    { text: "편안하고 조용하게 지친 마음을 쉬고 싶어요.", score: "chill", icon: "fa-mug-hot text-emerald-400" },
+                    { text: "약간 우울하거나 깊은 감성에 젖어있어요.", score: "emotional", icon: "fa-cloud-rain text-indigo-400" },
+                    { text: "머릿속이 복잡하고 색다른 기분 전환이 필요해요.", score: "trendy", icon: "fa-compass text-pink-400" }
+                ]
+            },
+            {
+                category: "선호하는 분위기",
+                question: "가장 마음이 끌리는 장소나 분위기는 어디인가요?",
+                options: [
+                    { text: "화려한 페스티벌이나 신나는 시원한 드라이브 도로", score: "energetic", icon: "fa-car-side text-amber-400" },
+                    { text: "따뜻한 조명의 조용한 동네 카페나 아늑한 방 안", score: "chill", icon: "fa-house-user text-emerald-400" },
+                    { text: "비 오는 날의 창가나 밤거리 루프탑 산책", score: "emotional", icon: "fa-moon text-indigo-400" },
+                    { text: "트렌디한 팝업 스토어나 감성적인 LP 바", score: "trendy", icon: "fa-record-vinyl text-pink-400" }
+                ]
+            },
+            {
+                category: "음악 감상 포인트",
+                question: "음악을 들을 때 가장 중요하게 생각하는 요소는 무엇인가요?",
+                options: [
+                    { text: "몸을 흔들게 만드는 강렬한 비트와 강한 템포", score: "energetic", icon: "fa-drum text-amber-400" },
+                    { text: "마음을 차분히 만들어주는 따뜻한 멜로디와 연주", score: "chill", icon: "fa-guitar text-emerald-400" },
+                    { text: "마음 깊이 공감되는 가사와 감성적인 보컬", score: "emotional", icon: "fa-heart text-indigo-400" },
+                    { text: "세련된 그루브, 감각적인 사운드 트렌드", score: "trendy", icon: "fa-sliders text-pink-400" }
+                ]
+            },
+            {
+                category: "성격 & 행동 스타일",
+                question: "평소 당신의 성격 스타일과 가장 가까운 것은 어떤 것인가요?",
+                options: [
+                    { text: "외향적이고 적극적이며 열정적인 타입", score: "energetic", icon: "fa-fire text-amber-400" },
+                    { text: "차분하고 내면의 평화를 중요시하는 다정파", score: "chill", icon: "fa-seedling text-emerald-400" },
+                    { text: "생각이 깊고 섬세하며 낭만적인 감성파", score: "emotional", icon: "fa-feather text-indigo-400" },
+                    { text: "자유롭고 자신만의 독특한 취향을 즐기는 타입", score: "trendy", icon: "fa-wand-magic-sparkles text-pink-400" }
+                ]
+            }
+        ];
+
+        // Archetypes and Songs Data
+        const archetypes = {
+            energetic: {
+                title: "에너제틱 스파크형 ⚡",
+                desc: "열정적이고 에너지 넘치는 당신! 답답함을 한 번에 날려버릴 시원하고 일렉트로닉하거나 파워풀한 비트의 음악이 최고의 짝궁입니다.",
+                icon: "fa-bolt",
+                tags: ["#에너지충전", "#드라이브송", "#신나는비트", "#스트레스해소"],
+                songs: [
+                    {
+                        title: "Supernova",
+                        artist: "aespa (에스파)",
+                        genre: "kpop",
+                        genreLabel: "K-POP / Hyperpop",
+                        cover: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80",
+                        reason: "강렬한 비트와 캐치한 사운드가 당신의 주체할 수 없는 에너지를 폭발시켜 줍니다.",
+                        query: "aespa Supernova"
+                    },
+                    {
+                        title: "Blinding Lights",
+                        artist: "The Weeknd",
+                        genre: "pop",
+                        genreLabel: "POP / Synthwave",
+                        cover: "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=300&auto=format&fit=crop&q=80",
+                        reason: "80년대 신스팝 스타일의 경쾌한 리듬으로 드라이브할 때 최상의 청량감을 제공합니다.",
+                        query: "The Weeknd Blinding Lights"
+                    },
+                    {
+                        title: "손오공 (Super)",
+                        artist: "SEVENTEEN (세븐틴)",
+                        genre: "kpop",
+                        genreLabel: "K-POP / Dance",
+                        cover: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&auto=format&fit=crop&q=80",
+                        reason: "웅장하고 묵직한 오케스트라 사운드와 신나는 댄스 비트가 기분을 최고조로 끌어올립니다.",
+                        query: "SEVENTEEN Super"
+                    },
+                    {
+                        title: "Uptown Funk",
+                        artist: "Mark Ronson ft. Bruno Mars",
+                        genre: "pop",
+                        genreLabel: "POP / Funk",
+                        cover: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop&q=80",
+                        reason: "중독성 있는 펑키한 그루브와 어깨를 들썩이게 만드는 절정의 브라스 연주!",
+                        query: "Mark Ronson Uptown Funk"
+                    },
+                    {
+                        title: "질주 (2 Baddies)",
+                        artist: "NCT 127",
+                        genre: "kpop",
+                        genreLabel: "K-POP / Hip-hop",
+                        cover: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=300&auto=format&fit=crop&q=80",
+                        reason: "파워풀한 사운드가 복잡한 머릿속을 시원하게 정리해줄 것입니다.",
+                        query: "NCT 127 2 Baddies"
+                    }
+                ]
+            },
+            chill: {
+                title: "어쿠스틱 힐러형 🌿",
+                desc: "차분함 속에서 따뜻한 안식을 찾는 당신. 포근한 어쿠스틱 악기 소리와 힐링 멜로디가 일상의 피로를 말끔히 씻어줄 것입니다.",
+                icon: "fa-seedling",
+                tags: ["#마음힐링", "#휴식과충전", "#어쿠스틱", "#카페음악"],
+                songs: [
+                    {
+                        title: "신호등",
+                        artist: "이무진",
+                        genre: "indie",
+                        genreLabel: "인디 / 어쿠스틱",
+                        cover: "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=300&auto=format&fit=crop&q=80",
+                        reason: "친근한 기타 선율과 따뜻한 가사가 휴식이 필요한 마음을 다정하게 두드려줍니다.",
+                        query: "이무진 신호등"
+                    },
+                    {
+                        title: "Sunday Morning",
+                        artist: "Maroon 5",
+                        genre: "pop",
+                        genreLabel: "POP / Soft Rock",
+                        cover: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=300&auto=format&fit=crop&q=80",
+                        reason: "햇살 가득한 주말 아침 같은 나른하고 평화로운 감성을 전달하는 명곡입니다.",
+                        query: "Maroon 5 Sunday Morning"
+                    },
+                    {
+                        title: "모든 날, 모든 순간",
+                        artist: "폴킴",
+                        genre: "indie",
+                        genreLabel: "발라드 / 어쿠스틱",
+                        cover: "https://images.unsplash.com/photo-1445375011782-4a22125f806f?w=300&auto=format&fit=crop&q=80",
+                        reason: "감미로운 피아노 선율과 목소리가 하루의 고단함을 포근하게 안아줍니다.",
+                        query: "폴킴 모든 날 모든 순간"
+                    },
+                    {
+                        title: "Until I Found You",
+                        artist: "Stephen Sanchez",
+                        genre: "pop",
+                        genreLabel: "POP / Retro",
+                        cover: "https://images.unsplash.com/photo-1526478806334-5fd488fcaabc?w=300&auto=format&fit=crop&q=80",
+                        reason: "빈티지하고 낭만적인 어쿠스틱 사운드로 마음 편안한 시간을 선사합니다.",
+                        query: "Stephen Sanchez Until I Found You"
+                    },
+                    {
+                        title: "주저하는 연인들을 위해",
+                        artist: "잔나비",
+                        genre: "indie",
+                        genreLabel: "인디 록 / 빈티지",
+                        cover: "https://images.unsplash.com/photo-1485579149621-3123dd979885?w=300&auto=format&fit=crop&q=80",
+                        reason: "서정적이고 따뜻한 멜로디가 편안한 사색의 시간으로 안내합니다.",
+                        query: "잔나비 주저하는 연인들을 위해"
+                    }
+                ]
+            },
+            emotional: {
+                title: "감성 칠아웃 딥퍼 🌙",
+                desc: "섬세하고 깊은 감수성을 가진 당신. 가사 하나하나에 마음을 담고 서정적인 피아노나 오케스트라, 딥한 R&B 사운드에 쉽게 매료됩니다.",
+                icon: "fa-cloud-moon",
+                tags: ["#감성폭발", "#밤거리산책", "#공감가사", "#새벽감성"],
+                songs: [
+                    {
+                        title: "To. X",
+                        artist: "태연 (TAEYEON)",
+                        genre: "kpop",
+                        genreLabel: "K-POP / R&B",
+                        cover: "https://images.unsplash.com/photo-1518895949257-7621c3c786d7?w=300&auto=format&fit=crop&q=80",
+                        reason: "감각적인 기타 리프와 태연의 몽환적인 음색이 당신의 세련된 감수성과 잘 맞습니다.",
+                        query: "태연 To. X"
+                    },
+                    {
+                        title: "Glimpse of Us",
+                        artist: "Joji",
+                        genre: "pop",
+                        genreLabel: "POP / Alt-R&B",
+                        cover: "https://images.unsplash.com/photo-1509114397022-ed747cca3f65?w=300&auto=format&fit=crop&q=80",
+                        reason: "서정적인 피아노 연주와 호소력 짙은 음색이 깊은 밤 잔잔한 여운을 줍니다.",
+                        query: "Joji Glimpse of Us"
+                    },
+                    {
+                        title: "사건의 지평선",
+                        artist: "윤하 (YOUNHA)",
+                        genre: "kpop",
+                        genreLabel: "K-POP / Rock Ballad",
+                        cover: "https://images.unsplash.com/photo-1464802686167-b939a6910659?w=300&auto=format&fit=crop&q=80",
+                        reason: "벅차오르는 감정과 드라마틱한 멜로디 전개가 감수성을 자극합니다.",
+                        query: "윤하 사건의 지평선"
+                    },
+                    {
+                        title: "Off My Face",
+                        artist: "Justin Bieber",
+                        genre: "pop",
+                        genreLabel: "POP / Acoustic",
+                        cover: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=300&auto=format&fit=crop&q=80",
+                        reason: "담백하면서도 진솔한 보컬이 혼자만의 감성적인 시간에 가장 잘 어울립니다.",
+                        query: "Justin Bieber Off My Face"
+                    },
+                    {
+                        title: "스물다섯, 스물하나",
+                        artist: "자우림",
+                        genre: "indie",
+                        genreLabel: "인디 / 모던록",
+                        cover: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=300&auto=format&fit=crop&q=80",
+                        reason: "아련한 아날로그 감성과 깊은 사색을 불러일으키는 가사가 일품입니다.",
+                        query: "자우림 스물다섯 스물하나"
+                    }
+                ]
+            },
+            trendy: {
+                title: "시티시티 세련파 🎧",
+                desc: "남들과는 다른 트렌디하고 트렌디한 취향을 지닌 당신! 감각적인 네오 솔, 로파이(Lo-fi), R&B 및 시티팝의 세련된 그루브가 잘 맞습니다.",
+                icon: "fa-compact-disc",
+                tags: ["#트렌디그루브", "#시티팝", "#감성드라이브", "#힙스터취향"],
+                songs: [
+                    {
+                        title: "Hype Boy",
+                        artist: "NewJeans (뉴진스)",
+                        genre: "kpop",
+                        genreLabel: "K-POP / Pop R&B",
+                        cover: "https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?w=300&auto=format&fit=crop&q=80",
+                        reason: "세련되고 트렌디한 멜로디라인과 중독성 있는 그루브가 매력적입니다.",
+                        query: "NewJeans Hype Boy"
+                    },
+                    {
+                        title: "Leave The Door Open",
+                        artist: "Silk Sonic (Bruno Mars, Paak)",
+                        genre: "pop",
+                        genreLabel: "POP / Retro Soul",
+                        cover: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&auto=format&fit=crop&q=80",
+                        reason: "클래식하고 고급스러운 소울 그루브로 완벽한 세련미를 느껴보세요.",
+                        query: "Silk Sonic Leave The Door Open"
+                    },
+                    {
+                        title: "LOVE DIVE",
+                        artist: "IVE (아이브)",
+                        genre: "kpop",
+                        genreLabel: "K-POP / Synth Pop",
+                        cover: "https://images.unsplash.com/photo-1506157786151-b8491531f063?w=300&auto=format&fit=crop&q=80",
+                        reason: "몽환적이면서도 캐치한 베이스 라인이 트렌디한 감각을 충족시켜 줍니다.",
+                        query: "IVE LOVE DIVE"
+                    },
+                    {
+                        title: "Paris in the Rain",
+                        artist: "Lauv",
+                        genre: "pop",
+                        genreLabel: "POP / Electro R&B",
+                        cover: "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=300&auto=format&fit=crop&q=80",
+                        reason: "도시적인 야경과 조화롭게 어우러지는 세련되고 부드러운 R&B 트랙입니다.",
+                        query: "Lauv Paris in the Rain"
+                    },
+                    {
+                        title: "서울 체크인 (Seoul)",
+                        artist: "오혁 / 검정치마",
+                        genre: "indie",
+                        genreLabel: "인디 / 시티팝",
+                        cover: "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=300&auto=format&fit=crop&q=80",
+                        reason: "자유롭고 힙한 아티스틱 감성으로 유니크한 사운드를 선사합니다.",
+                        query: "검정치마 EVERYTHING"
+                    }
+                ]
+            }
+        };
+
+        // State variables
+        let currentQuestionIndex = 0;
+        let userAnswers = [];
+        let calculatedArchetype = null;
+        let activeFilter = 'all';
+
+        // DOM Elements
+        const stepWelcome = document.getElementById('step-welcome');
+        const stepQuiz = document.getElementById('step-quiz');
+        const stepLoading = document.getElementById('step-loading');
+        const stepResult = document.getElementById('step-result');
+
+        // Start Quiz Action
+        function startQuiz() {
+            currentQuestionIndex = 0;
+            userAnswers = [];
+            stepWelcome.classList.add('hidden');
+            stepResult.classList.add('hidden');
+            stepQuiz.classList.remove('hidden');
+            renderQuestion();
+        }
+
+        // Reset to Home
+        function resetToHome() {
+            stepQuiz.classList.add('hidden');
+            stepLoading.classList.add('hidden');
+            stepResult.classList.add('hidden');
+            stepWelcome.classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Render Current Question
+        function renderQuestion() {
+            const q = questions[currentQuestionIndex];
+            
+            // Progress Update
+            const total = questions.length;
+            const percent = Math.round(((currentQuestionIndex + 1) / total) * 100);
+            document.getElementById('quiz-step-indicator').innerText = `질문 ${currentQuestionIndex + 1} / ${total}`;
+            document.getElementById('quiz-percent').innerText = `${percent}%`;
+            document.getElementById('quiz-progress-bar').style.width = `${percent}%`;
+
+            // Back button visibility
+            const prevBtn = document.getElementById('prev-btn');
+            if (currentQuestionIndex > 0) {
+                prevBtn.classList.remove('invisible');
+            } else {
+                prevBtn.classList.add('invisible');
+            }
+
+            // Question Text
+            document.getElementById('question-category').innerText = q.category;
+            document.getElementById('question-text').innerText = q.question;
+
+            // Options Render
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+
+            q.options.forEach((opt, idx) => {
+                const button = document.createElement('button');
+                button.className = "glass-card w-full p-4 sm:p-5 rounded-2xl flex items-center justify-between text-left group transition-all duration-200 hover:border-indigo-500/50";
+                button.onclick = () => selectOption(opt.score);
+
+                button.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-lg group-hover:scale-110 transition-transform">
+                            <i class="fa-solid ${opt.icon}"></i>
+                        </div>
+                        <span class="text-sm sm:text-base font-medium text-slate-200 group-hover:text-white">${opt.text}</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-xs text-slate-600 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all"></i>
+                `;
+                container.appendChild(button);
+            });
+        }
+
+        // Handle Option Select
+        function selectOption(scoreKey) {
+            userAnswers[currentQuestionIndex] = scoreKey;
+
+            if (currentQuestionIndex < questions.length - 1) {
+                currentQuestionIndex++;
+                renderQuestion();
+            } else {
+                // All questions answered -> Show Loading
+                showLoadingAndCalculate();
+            }
+        }
+
+        // Go to previous question
+        function prevQuestion() {
+            if (currentQuestionIndex > 0) {
+                currentQuestionIndex--;
+                renderQuestion();
+            }
+        }
+
+        // Calculate Archetype and Show Loading Sequence
+        function showLoadingAndCalculate() {
+            stepQuiz.classList.add('hidden');
+            stepLoading.classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            // Count scores
+            const scoreCounts = { energetic: 0, chill: 0, emotional: 0, trendy: 0 };
+            userAnswers.forEach(ans => {
+                if (scoreCounts[ans] !== undefined) {
+                    scoreCounts[ans]++;
+                }
+            });
+
+            // Find max score
+            let maxScore = -1;
+            let resultKey = 'energetic';
+            for (const [key, count] of Object.entries(scoreCounts)) {
+                if (count > maxScore) {
+                    maxScore = count;
+                    resultKey = key;
+                }
+            }
+
+            calculatedArchetype = resultKey;
+
+            // Simulated AI calculation delay
+            setTimeout(() => {
+                stepLoading.classList.add('hidden');
+                displayResults(resultKey);
+                stepResult.classList.remove('hidden');
+            }, 1600);
+        }
+
+        // Display Results
+        function displayResults(archetypeKey) {
+            const data = archetypes[archetypeKey] || archetypes.energetic;
+
+            // Render Header Banner
+            document.getElementById('archetype-title').innerText = data.title;
+            document.getElementById('archetype-desc').innerText = data.desc;
+            document.getElementById('archetype-icon-box').innerHTML = `<i class="fa-solid ${data.icon}"></i>`;
+
+            // Render Tags
+            const tagContainer = document.getElementById('archetype-tags');
+            tagContainer.innerHTML = '';
+            data.tags.forEach(tag => {
+                const span = document.createElement('span');
+                span.className = "px-3 py-1 rounded-full bg-slate-800 text-indigo-300 text-xs font-medium border border-slate-700/60";
+                span.innerText = tag;
+                tagContainer.appendChild(span);
+            });
+
+            // Active Filter Reset
+            activeFilter = 'all';
+            updateFilterButtons();
+
+            // Render Songs
+            renderSongList(data.songs);
+        }
+
+        // Render Song Cards List
+        function renderSongList(songs) {
+            const container = document.getElementById('songs-container');
+            container.innerHTML = '';
+
+            const filteredSongs = activeFilter === 'all' 
+                ? songs 
+                : songs.filter(s => s.genre === activeFilter);
+
+            if (filteredSongs.length === 0) {
+                container.innerHTML = `
+                    <div class="glass-panel p-8 text-center rounded-2xl text-slate-400 text-sm">
+                        해당 장르의 추천 곡이 없습니다. 다른 필터를 선택해 주세요!
+                    </div>
+                `;
+                return;
+            }
+
+            filteredSongs.forEach((song, idx) => {
+                const card = document.createElement('div');
+                card.className = "glass-card p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-slate-800 hover:border-indigo-500/30 transition-all";
+
+                const youtubeUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(song.query)}`;
+                const spotifyUrl = `https://open.spotify.com/search/${encodeURIComponent(song.query)}`;
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-4 w-full sm:w-auto">
+                        <!-- Album Art -->
+                        <div class="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden flex-shrink-0 bg-slate-800 group shadow-md">
+                            <img src="${song.cover}" alt="${song.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop&q=80'">
+                            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                <i class="fa-solid fa-music"></i>
+                            </div>
+                        </div>
+
+                        <!-- Song Info -->
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                                    ${song.genreLabel}
+                                </span>
+                            </div>
+                            <h4 class="text-base sm:text-lg font-bold text-white truncate">${song.title}</h4>
+                            <p class="text-xs sm:text-sm text-slate-400 truncate mb-1.5">${song.artist}</p>
+                            <p class="text-xs text-slate-300 bg-slate-800/60 p-2 rounded-lg border border-slate-700/40 line-clamp-2">
+                                <i class="fa-solid fa-quote-left text-[10px] text-indigo-400 mr-1"></i>${song.reason}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- External Listen Links -->
+                    <div class="flex sm:flex-col gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-800">
+                        <a href="${youtubeUrl}" target="_blank" rel="noopener noreferrer" class="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-400 text-xs font-semibold border border-red-500/30 transition-all">
+                            <i class="fa-brands fa-youtube text-sm"></i> YouTube
+                        </a>
+                        <a href="${spotifyUrl}" target="_blank" rel="noopener noreferrer" class="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 text-xs font-semibold border border-emerald-500/30 transition-all">
+                            <i class="fa-brands fa-spotify text-sm"></i> Spotify
+                        </a>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        // Song Filter Handling
+        function filterSongs(genre) {
+            activeFilter = genre;
+            updateFilterButtons();
+            
+            if (calculatedArchetype && archetypes[calculatedArchetype]) {
+                renderSongList(archetypes[calculatedArchetype].songs);
+            }
+        }
+
+        function updateFilterButtons() {
+            const btns = document.querySelectorAll('.song-filter-btn');
+            btns.forEach(btn => {
+                const btnGenre = btn.getAttribute('onclick').match(/'([^']+)'/)[1];
+                if (btnGenre === activeFilter) {
+                    btn.className = "song-filter-btn active px-3 py-1.5 rounded-lg text-white bg-indigo-600 transition-all shadow-md";
+                } else {
+                    btn.className = "song-filter-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition-all";
+                }
+            });
+        }
+
+        // Share Functionality (Clipboard fallback)
+        function shareResult() {
+            const currentArchetype = archetypes[calculatedArchetype]?.title || "나만의 음악 성격";
+            const shareText = `[SoundMatch] 나의 음악 아키타입은 '${currentArchetype}'입니다! 당신의 취향에 딱 맞는 음악을 찾아보세요!`;
+            
+            // Clipboard Fallback using execCommand as required
+            const dummy = document.createElement('textarea');
+            document.body.appendChild(dummy);
+            dummy.value = `${shareText}\n${window.location.href}`;
+            dummy.select();
+            document.execCommand('copy');
+            document.body.removeChild(dummy);
+
+            showToast("결과 링크와 내용이 클립보드에 복사되었습니다!");
+        }
+
+        // Show Toast Notification
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+            
+            toastMsg.innerText = message;
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            toast.classList.add('opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
